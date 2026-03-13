@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Créances — Comparatif campagne 24-25 / 25-26</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Arial, sans-serif; background: #f5f4f0; color: #2c2c2a; padding: 24px; }
+  h1 { font-size: 18px; font-weight: 500; margin-bottom: 4px; }
+  .subtitle { font-size: 13px; color: #5f5e5a; margin-bottom: 20px; }
+
+  .kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
+  .kpi { background: #fff; border-radius: 10px; padding: 14px 16px; border: 0.5px solid #d3d1c7; }
+  .kpi-label { font-size: 11px; color: #888780; margin-bottom: 6px; }
+  .kpi-value { font-size: 20px; font-weight: 500; }
+  .kpi-value.green { color: #0f6e56; }
+  .kpi-value.red   { color: #993c1d; }
+
+  .card { background: #fff; border-radius: 12px; padding: 20px; border: 0.5px solid #d3d1c7; margin-bottom: 16px; }
+  .card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; flex-wrap: wrap; gap: 10px; }
+  .card-title { font-size: 14px; font-weight: 500; }
+
+  .btn-group { display: flex; gap: 6px; flex-wrap: wrap; }
+  .btn { font-size: 12px; padding: 5px 12px; border-radius: 6px; border: 0.5px solid #b4b2a9; background: transparent; color: #5f5e5a; cursor: pointer; transition: all 0.2s; }
+  .btn:hover { background: #f1efe8; }
+  .btn.active { background: #e6f1fb; color: #185fa5; border-color: #85b7eb; }
+
+  .legend { display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 10px; }
+  .leg-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #5f5e5a; }
+  .leg-dot { width: 10px; height: 10px; border-radius: 2px; }
+
+  .chart-wrap { position: relative; width: 100%; height: 360px; }
+
+  @media (max-width: 600px) {
+    .kpi-row { grid-template-columns: 1fr 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<h1>Créances — Comparatif campagnes</h1>
+<p class="subtitle">Campagne 24-25 (N-1) &nbsp;vs&nbsp; Campagne 25-26 (N) &nbsp;·&nbsp; Données : onglet MIX</p>
+
+<div class="kpi-row" id="kpi-row"></div>
+
+<div class="card">
+  <div class="card-header">
+    <span class="card-title">Évolution des créances</span>
+    <div class="btn-group">
+      <button class="btn active" id="btn-full"    onclick="setView('full')">Vue complète</button>
+      <button class="btn"        id="btn-overlap" onclick="setView('overlap')">Période commune</button>
+      <button class="btn"        id="btn-mars"    onclick="setView('mars')">Zoom fin mars ↗</button>
+    </div>
+  </div>
+  <div class="legend">
+    <div class="leg-item"><div class="leg-dot" style="background:#185FA5;"></div>Créances 25-26 (N)</div>
+    <div class="leg-item"><div class="leg-dot" style="background:#1D9E75;"></div>Créances 24-25 (N-1)</div>
+    <div class="leg-item"><div class="leg-dot" style="background:rgba(23,95,165,0.13);border:1px solid #85b7eb;"></div>Écart entre courbes</div>
+  </div>
+  <div class="chart-wrap"><canvas id="mainChart"></canvas></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+const raw = [
+  {"date":"15/07","n1":null,"n":8609346,"ecart":null},
+  {"date":"29/07","n1":null,"n":8423937,"ecart":null},
+  {"date":"05/08","n1":null,"n":8555249,"ecart":null},
+  {"date":"06/09","n1":8333954,"n":8218316,"ecart":115638},
+  {"date":"13/09","n1":7964847,"n":null,"ecart":null},
+  {"date":"19/09","n1":7674988,"n":7401009,"ecart":273979},
+  {"date":"27/09","n1":7315135,"n":null,"ecart":null},
+  {"date":"02/10","n1":7658435,"n":null,"ecart":null},
+  {"date":"07/10","n1":7499823,"n":null,"ecart":null},
+  {"date":"10/10","n1":7361286,"n":6982782,"ecart":378504},
+  {"date":"17/10","n1":7097545,"n":6869591,"ecart":227954},
+  {"date":"28/10","n1":6799087,"n":null,"ecart":null},
+  {"date":"30/10","n1":6688318,"n":6946295,"ecart":-257977},
+  {"date":"06/11","n1":7281240,"n":6789029,"ecart":492211},
+  {"date":"18/11","n1":7104915,"n":6490212,"ecart":614703},
+  {"date":"21/11","n1":7041865,"n":6277505,"ecart":764360},
+  {"date":"02/12","n1":7982546,"n":6245494,"ecart":1737052},
+  {"date":"09/12","n1":7171109,"n":5879355,"ecart":1291753},
+  {"date":"12/12","n1":7011135,"n":null,"ecart":null},
+  {"date":"23/12","n1":6266748,"n":null,"ecart":null},
+  {"date":"02/01","n1":6493384,"n":null,"ecart":null},
+  {"date":"13/01","n1":6129746,"n":5423569,"ecart":706177},
+  {"date":"22/01","n1":5679160,"n":5050236,"ecart":628924},
+  {"date":"10/02","n1":5421862,"n":null,"ecart":null},
+  {"date":"17/02","n1":5323606,"n":4659321,"ecart":664285},
+  {"date":"20/02","n1":4937221,"n":4523789,"ecart":413432},
+  {"date":"25/02","n1":4770468,"n":4156236,"ecart":614232},
+  {"date":"10/03","n1":4249692,"n":null,"ecart":null},
+  {"date":"18/03","n1":4089167,"n":null,"ecart":null},
+  {"date":"24/03","n1":4029162,"n":null,"ecart":null},
+  {"date":"07/04","n1":5081405,"n":null,"ecart":null},
+  {"date":"15/04","n1":4988838,"n":null,"ecart":null},
+  {"date":"06/05","n1":7440092,"n":null,"ecart":null},
+  {"date":"14/05","n1":6875845,"n":null,"ecart":null},
+  {"date":"26/05","n1":6556624,"n":null,"ecart":null},
+  {"date":"02/06","n1":9078181,"n":null,"ecart":null},
+  {"date":"10/06","n1":8422587,"n":null,"ecart":null},
+  {"date":"25/06","n1":7618580,"n":null,"ecart":null},
+  {"date":"30/06","n1":9328174,"n":null,"ecart":null}
+];
+
+const overlapRaw = raw.filter(r => r.n1 !== null && r.n !== null);
+const marsRaw    = raw.slice(raw.findIndex(r => r.date === '13/01'), raw.findIndex(r => r.date === '15/04') + 1);
+
+function fmtM(v) {
+  if (v == null) return '—';
+  return (v / 1000000).toFixed(3).replace('.', ',') + ' M€';
+}
+function fmtEcart(v) {
+  if (v == null) return '—';
+  const abs = Math.abs(v);
+  const sign = v >= 0 ? '+' : '-';
+  if (abs >= 1000000) return sign + (abs / 1000000).toFixed(2).replace('.', ',') + ' M€';
+  return sign + abs.toLocaleString('fr-FR') + ' €';
+}
+
+// KPIs
+const withEcart = raw.filter(r => r.ecart !== null);
+const lastEcart = withEcart[withEcart.length - 1];
+const maxEcart  = withEcart.reduce((a, b) => Math.abs(b.ecart) > Math.abs(a.ecart) ? b : a, withEcart[0]);
+const lastN     = raw.filter(r => r.n  !== null).slice(-1)[0];
+const lastN1    = raw.filter(r => r.n1 !== null).slice(-1)[0];
+
+document.getElementById('kpi-row').innerHTML = `
+  <div class="kpi"><div class="kpi-label">Dernier relevé N (25-26)</div><div class="kpi-value">${fmtM(lastN.n)}</div><div style="font-size:11px;color:#888780;margin-top:3px;">${lastN.date}</div></div>
+  <div class="kpi"><div class="kpi-label">Dernier relevé N-1 (24-25)</div><div class="kpi-value">${fmtM(lastN1.n1)}</div><div style="font-size:11px;color:#888780;margin-top:3px;">${lastN1.date}</div></div>
+  <div class="kpi"><div class="kpi-label">Dernier écart mesuré</div><div class="kpi-value ${lastEcart.ecart >= 0 ? 'green' : 'red'}">${fmtEcart(lastEcart.ecart)}</div><div style="font-size:11px;color:#888780;margin-top:3px;">${lastEcart.date}</div></div>
+  <div class="kpi"><div class="kpi-label">Écart max observé</div><div class="kpi-value green">${fmtEcart(maxEcart.ecart)}</div><div style="font-size:11px;color:#888780;margin-top:3px;">${maxEcart.date}</div></div>
+`;
+
+// ---- Plugin remplissage entre courbes ----
+const fillBetweenPlugin = {
+  id: 'fillBetween',
+  beforeDatasetsDraw(ch) {
+    const { ctx } = ch;
+    const pts0 = ch.getDatasetMeta(0).data.filter(p => p && !isNaN(p.y));
+    const pts1 = ch.getDatasetMeta(1).data.filter(p => p && !isNaN(p.y));
+    if (!pts0.length || !pts1.length) return;
+    ctx.save();
+    ctx.beginPath();
+    pts0.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
+    [...pts1].reverse().forEach(p => ctx.lineTo(p.x, p.y));
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(23,95,165,0.09)';
+    ctx.fill();
+    ctx.restore();
+  }
+};
+
+// ---- Plugin badges écart (zoom mars) ----
+let showEcartBadges = false;
+const ecartBadgePlugin = {
+  id: 'ecartBadges',
+  afterDatasetsDraw(ch) {
+    if (!showEcartBadges) return;
+    const { ctx } = ch;
+    const data = ch._srcData;
+    if (!data) return;
+    const m0 = ch.getDatasetMeta(0);
+    const m1 = ch.getDatasetMeta(1);
+
+    data.forEach((r, i) => {
+      if (r.ecart === null || r.n === null || r.n1 === null) return;
+      const pt0 = m0.data[i];
+      const pt1 = m1.data[i];
+      if (!pt0 || !pt1 || isNaN(pt0.y) || isNaN(pt1.y)) return;
+
+      const x    = pt0.x;
+      const yTop = Math.min(pt0.y, pt1.y);
+      const yBot = Math.max(pt0.y, pt1.y);
+      const yMid = (yTop + yBot) / 2;
+      const color = r.ecart >= 0 ? '#185FA5' : '#993c1d';
+
+      // Ligne verticale pointillée
+      ctx.save();
+      ctx.setLineDash([4, 3]);
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1.8;
+      ctx.beginPath();
+      ctx.moveTo(x, yTop + 5);
+      ctx.lineTo(x, yBot - 5);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Petits tirets terminaux
+      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = color;
+      [-1, 1].forEach(dir => {
+        const yy = dir === -1 ? yTop + 4 : yBot - 4;
+        ctx.beginPath();
+        ctx.moveTo(x - 5, yy);
+        ctx.lineTo(x + 5, yy);
+        ctx.stroke();
+      });
+
+      // Badge valeur
+      const label = fmtEcart(r.ecart);
+      ctx.font = 'bold 12px Arial';
+      const tw = ctx.measureText(label).width;
+      const bw = tw + 16;
+      const bh = 22;
+      const bx = x - bw / 2;
+      const by = yMid - bh / 2;
+
+      // Ombre légère
+      ctx.shadowColor = 'rgba(0,0,0,0.18)';
+      ctx.shadowBlur = 4;
+      ctx.shadowOffsetY = 1;
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.roundRect(bx, by, bw, bh, 5);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.shadowOffsetY = 0;
+
+      ctx.fillStyle = '#fff';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(label, x, yMid);
+      ctx.restore();
+    });
+  }
+};
+
+let chart;
+
+function buildChart(data, opts = {}) {
+  showEcartBadges = !!opts.ecartBadges;
+
+  if (chart) { chart.destroy(); chart = null; }
+
+  const dN  = data.map(r => r.n);
+  const dN1 = data.map(r => r.n1);
+  const allV = [...dN, ...dN1].filter(v => v != null);
+  const minV = Math.min(...allV) * 0.95;
+  const maxV = Math.max(...allV) * 1.04;
+
+  const instance = new Chart(document.getElementById('mainChart'), {
+    type: 'line',
+    plugins: [fillBetweenPlugin, ecartBadgePlugin],
+    data: {
+      labels: data.map(r => r.date),
+      datasets: [
+        {
+          label: 'N — 25-26', data: dN,
+          borderColor: '#185FA5', backgroundColor: 'transparent',
+          tension: 0.35, spanGaps: true,
+          pointRadius: opts.ecartBadges ? 6 : 5, pointHoverRadius: 9,
+          pointBackgroundColor: '#185FA5', pointBorderColor: '#fff', pointBorderWidth: 2,
+          borderWidth: 2.5
+        },
+        {
+          label: 'N-1 — 24-25', data: dN1,
+          borderColor: '#1D9E75', backgroundColor: 'transparent',
+          tension: 0.35, spanGaps: true, borderDash: [7, 4],
+          pointRadius: opts.ecartBadges ? 6 : 4, pointHoverRadius: 8,
+          pointBackgroundColor: '#1D9E75', pointBorderColor: '#fff', pointBorderWidth: 2,
+          borderWidth: 2
+        }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      animation: { duration: 850, easing: 'easeInOutQuart' },
+      interaction: { mode: 'index', intersect: false },
+      layout: { padding: { top: opts.ecartBadges ? 20 : 10, bottom: 4 } },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          padding: 12,
+          callbacks: {
+            title: it => 'Date : ' + it[0].label,
+            label: it => it.raw == null ? null : '  ' + it.dataset.label + ' : ' + fmtM(it.raw),
+            afterBody: it => {
+              const d = data[it[0].dataIndex];
+              return d.ecart != null ? ['', '  Écart (N-1 − N) : ' + fmtEcart(d.ecart)] : [];
+            }
+          }
+        }
+      },
+      scales: {
+        x: { grid: { display: false }, ticks: { color: '#888780', font: { size: 11 }, maxRotation: 45, autoSkip: true, maxTicksLimit: 18 } },
+        y: {
+          min: minV, max: maxV,
+          ticks: { color: '#888780', font: { size: 11 }, callback: v => (v / 1000000).toFixed(1) + ' M€' },
+          grid: { color: 'rgba(136,135,128,0.1)' }
+        }
+      }
+    }
+  });
+
+  instance._srcData = data;
+  chart = instance;
+}
+
+function setView(mode) {
+  ['full','overlap','mars'].forEach(m =>
+    document.getElementById('btn-' + m).classList.toggle('active', m === mode)
+  );
+  if (mode === 'full')    buildChart(raw);
+  if (mode === 'overlap') buildChart(overlapRaw);
+  if (mode === 'mars')    buildChart(marsRaw, { ecartBadges: true });
+}
+
+buildChart(raw);
+</script>
+</body>
+</html>
